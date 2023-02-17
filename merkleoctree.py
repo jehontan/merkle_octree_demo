@@ -246,7 +246,7 @@ def compare_hash_trees(local_tree:HashTree, remote_tree:HashTree):
                 diff_tree.append((child_path, ChangeStatus.ADD_TO_LOCAL))
             elif not remote_child:
                 # branch does not exist remotely
-                diff_tree.append((child_path, ChangeStatus.ADD_TO_LOCAL))
+                diff_tree.append((child_path, ChangeStatus.ADD_TO_REMOTE))
             else:
                 # different versions
                 if local_child.level == 0:
