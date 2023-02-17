@@ -24,6 +24,12 @@ class AbstractMerkleOctreeNode:
 
     def update_hash(self):
         raise NotImplementedError
+    
+    def __eq__(self, __o: object) -> bool:
+        if isinstance(__o, AbstractMerkleOctreeNode):
+            return self.hash == __o.hash
+        else:
+            return False
 
 class MerkleOctreeLeafNode(AbstractMerkleOctreeNode):
     def __init__(self, min_bounds, max_bounds, parent):
@@ -178,7 +184,7 @@ class HashTreeIterator: # Depth-First
     def to_list(self):
         return [h for h in self]
 
-class HashTreeNode:
+class HashTree:
     def __init__(self, hash=None, level=0, parent=None):
         self.hash = hash
         self.level = level
@@ -189,7 +195,7 @@ class HashTreeNode:
         encoded = copy(encoded)
         max_level, parent_idx, idx, hash = encoded.pop(0)
         
-        root = HashTreeNode(hash, max_level)
+        root = HashTree(hash, max_level)
 
         ancestors = [root] # stack
 
@@ -197,7 +203,7 @@ class HashTreeNode:
             while level != max_level - len(ancestors):
                 ancestors.pop()
 
-            node = HashTreeNode(hash, level, ancestors[-1])
+            node = HashTree(hash, level, ancestors[-1])
             ancestors[-1].children[idx] = node
             ancestors.append(node)
 
@@ -205,5 +211,49 @@ class HashTreeNode:
 
     def __iter__(self):
         return HashTreeIterator(self)
+    
+    def __eq__(self, __o: object) -> bool:
+        if isinstance(__o, HashTree):
+            return self.hash == __o.hash
+        else:
+            return False
 
-# TODO: Figure out comparison
+class ChangeStatus(Enum):
+    ADD_TO_LOCAL = 1    # remote copy does not exist locally
+    ADD_TO_REMOTE = 2   # local copy does not exist remotely
+    MERGE_BOTH = 3           # local/remote copies conflict, apply merge rules
+
+def compare_hash_trees(local_tree:HashTree, remote_tree:HashTree):
+    # BFS
+    queue = [(list(), local_tree, remote_tree)] # path, local node, remote node
+    diff_tree = []
+    
+    while len(queue) > 0:
+        path, local, remote = queue.pop(0)
+        
+        # compare children
+        for i in range(8):
+            local_child = local.children[i]
+            remote_child = remote.children[i]
+            child_path = path + [i]
+
+            if local_child == remote_child:
+                # no difference, skip
+                continue
+
+            if not local_child:
+                # branch does not exist locally
+                diff_tree.append((child_path, ChangeStatus.ADD_TO_LOCAL))
+            elif not remote_child:
+                # branch does not exist remotely
+                diff_tree.append((child_path, ChangeStatus.ADD_TO_LOCAL))
+            else:
+                # different versions
+                if local_child.level == 0:
+                    # comparing leaf nodes, no refinement possible, merge data
+                    diff_tree.append((child_path, ChangeStatus.MERGE_BOTH))
+                else:
+                    # drill down to find changes
+                    queue.append((child_path, local_child, remote_child))
+
+    return diff_tree
