@@ -30,6 +30,9 @@ class AbstractMerkleOctreeNode:
             return self.hash == __o.hash
         else:
             return False
+        
+    def __iter__(self):
+        return MerkleOctreeIterator(self)
 
 class MerkleOctreeLeafNode(AbstractMerkleOctreeNode):
     def __init__(self, min_bounds, max_bounds, parent):
@@ -104,9 +107,6 @@ class MerkleOctreeInnerNode(AbstractMerkleOctreeNode):
     def set_child(self, idx, value):
         idx_ = self.child_idx[idx[0]][idx[1]][idx[2]]
         self.children[idx_] = value
-
-    def __iter__(self):
-        return MerkleOctreeIterator(self)
 
     @property
     def hash_tree(self):
