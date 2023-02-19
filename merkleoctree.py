@@ -3,12 +3,14 @@ import hashlib
 import numpy as np
 import open3d as o3d
 from enum import Enum
-from itertools import takewhile
 
 class DataPoint:
     def __init__(self, pos, data):
         self.pos = np.array(pos)
         self.data = data
+
+    def __repr__(self) -> str:
+        return f'<DataPoint: pos={self.pos}, data={self.data}>'
 
 class AbstractMerkleOctreeNode:
     def __init__(self, min_bounds, max_bounds, level, parent):
@@ -111,6 +113,12 @@ class MerkleOctreeInnerNode(AbstractMerkleOctreeNode):
     @property
     def hash_tree(self):
         return HashTreeIterator(self)
+
+    def get_child_from_path(self, path):
+        node = self
+        for idx in path:
+            node = node.children[idx]
+        return node
             
 class MerkleOctree(MerkleOctreeInnerNode):
     def __init__(self, min_bounds, max_bounds, max_depth):
@@ -257,3 +265,18 @@ def compare_hash_trees(local_tree:HashTree, remote_tree:HashTree):
                     queue.append((child_path, local_child, remote_child))
 
     return diff_tree
+
+def extract_changes(octree:MerkleOctreeInnerNode, diff_tree):
+    changes = list()
+
+    for path, status in diff_tree:
+        if status == ChangeStatus.ADD_TO_REMOTE or status == ChangeStatus.MERGE_BOTH:
+            subtree = octree.get_child_from_path(path)
+            
+            # append only leaf nodes
+            for node in subtree:
+                if node.level == 0:
+                    point = DataPoint(pos=node.center, data=node.data)
+                    changes.append(point)
+
+    return changes
