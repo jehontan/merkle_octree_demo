@@ -4,6 +4,41 @@ import numpy as np
 import open3d as o3d
 from enum import Enum
 
+class AbstractDataType:
+    def __init__(self, data):
+        self.buf = self.serialize(data)
+
+    @property
+    def data(self):
+        return self.deserialize(self.buf)
+
+    @data.setter
+    def data(self, data):
+        self.buf = self.serialize(data)
+
+    @staticmethod
+    def serialize(data) -> bytes:
+        raise NotImplementedError
+
+    @staticmethod
+    def deserialize(buf:bytes):
+        raise NotImplementedError
+
+    def __repr__(self) -> str:
+        return f'<{self.__class__.__name__}: data={self.data}>'
+
+class NumpyDataType(AbstractDataType):
+    def __init__(self, data):
+        self.data = np.array(data)
+
+    @staticmethod
+    def serialize(data) -> bytes:
+        return data.tobytes()
+
+    @staticmethod
+    def deserialize(buf: bytes):
+        return np.frombuffer(buf)
+
 class DataPoint:
     def __init__(self, pos, data):
         self.pos = np.array(pos)
@@ -47,7 +82,7 @@ class MerkleOctreeLeafNode(AbstractMerkleOctreeNode):
         self.update_hash()
 
     def update_hash(self):
-        self.hash = hashlib.sha1(self.data).digest()
+        self.hash = hashlib.sha1(self.data.buf).digest()
 
         if self.parent:
             self.parent.update_hash()
